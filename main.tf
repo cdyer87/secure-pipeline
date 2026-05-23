@@ -1,0 +1,118 @@
+terraform {
+  backend "s3" {
+    bucket         = "enterprise-cicd-vault-7da80258" # Your unique bucket name
+    key            = "global/s3/terraform.tfstate"    # The file path inside the bucket
+    region         = "us-east-1"
+    dynamodb_table = "enterprise-cicd-state-locks"    # The lock table we just built
+    encrypt        = true
+  }
+}
+
+# ... (rest of your existing code) ...
+# --- Phase 1: The Remote Vault (Backend Infrastructure) ---
+provider "aws" {
+  region = "us-east-1"
+}
+
+# 1. Random ID Generator (S3 bucket names must be globally unique across all of AWS)
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+# 2. The S3 Bucket (Terraform's Remote Memory)
+resource "aws_s3_bucket" "terraform_state" {
+  bucket        = "enterprise-cicd-vault-${random_id.bucket_suffix.hex}"
+  force_destroy = true # Allows us to easily tear this down later
+  
+  tags = { Name = "enterprise-cicd-state-vault" }
+}
+
+# Enable Versioning (Keeps a backup history of your state file)
+resource "aws_s3_bucket_versioning" "state_versioning" {
+  bucket = aws_s3_bucket.terraform_state.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Enable Server-Side Encryption (Security best practice)
+resource "aws_s3_bucket_server_side_encryption_configuration" "state_encryption" {
+  bucket = aws_s3_bucket.terraform_state.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# 3. The DynamoDB Table (The State Lock)
+resource "aws_dynamodb_table" "terraform_locks" {
+  name         = "enterprise-cicd-state-locks"
+  billing_mode = "PAY_PER_REQUEST" # Free-tier friendly, only pay for what you use
+  hash_key     = "LockID"          # Terraform specifically looks for this exact key name
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+  
+  tags = { Name = "enterprise-cicd-state-locks" }
+}
+# --- Phase 2: The Container Vault (AWS ECR) ---
+
+resource "aws_ecr_repository" "app_repo" {
+  name                 = "enterprise-secure-app"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true # Allows clean teardown later
+
+  # This is a massive resume booster: AWS will automatically scan your code for vulnerabilities
+  image_scanning_configuration {
+    scan_on_push = true 
+  }
+}
+# --- Phase 3: The Serverless Production Tier (AWS ECS) ---
+
+# 1. IAM Role: Give ECS permission to pull Docker images from your ECR Vault
+resource "aws_iam_role" "ecs_execution_role" {
+  name = "enterprise-ecs-execution-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+    }]
+  })
+}
+
+# Attach Amazon's default policy to the role
+resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# 2. The Serverless Cluster
+resource "aws_ecs_cluster" "app_cluster" {
+  name = "enterprise-serverless-cluster"
+}
+
+# 3. The Blueprint (Task Definition)
+resource "aws_ecs_task_definition" "app_task" {
+  family                   = "enterprise-app-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"] # This is the magic "Serverless" keyword!
+  cpu                      = "256"       # 0.25 vCPU
+  memory                   = "512"       # 0.5 GB RAM
+  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
+
+  # This dynamically points to the ECR Vault you built in Phase 2!
+  container_definitions = jsonencode([{
+    name      = "enterprise-app-container"
+    image     = aws_ecr_repository.app_repo.repository_url 
+    essential = true
+    portMappings = [{
+      containerPort = 80
+      hostPort      = 80
+    }]
+  }])
+}

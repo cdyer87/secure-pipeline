@@ -1,0 +1,40 @@
+name: Enterprise CI/CD Pipeline
+
+# 1. The Trigger: When does this run?
+on:
+  push:
+    branches: [ "main" ]
+
+# 2. The Engine: What kind of server runs this?
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Download your code into the GitHub server
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    # Step 2: Log securely into your AWS account
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    # Step 3: Log into your private ECR Vault
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    # Step 4: Build the Docker image and push it to AWS!
+    - name: Build, Tag, and Push Docker Image
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPOSITORY: enterprise-secure-app
+        IMAGE_TAG: latest
+      run: |
+        cd app
+        docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+        docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
