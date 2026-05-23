@@ -116,3 +116,50 @@ resource "aws_ecs_task_definition" "app_task" {
     }]
   }])
 }
+# --- Phase 5: The Live Service (Turning it on) ---
+
+# 1. Grab your account's default network
+data "aws_vpc" "default" { 
+  default = true 
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+# 3. The Front Door (Security Group)
+resource "aws_security_group" "ecs_sg" {
+  name        = "enterprise-ecs-sg"
+  description = "Allow HTTP traffic from the internet"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+# 2. The ECS Service (The Engine that runs your container)
+resource "aws_ecs_service" "app_service" {
+  name            = "enterprise-app-service"
+  cluster         = aws_ecs_cluster.app_cluster.id
+  task_definition = aws_ecs_task_definition.app_task.arn
+  launch_type     = "FARGATE"
+  desired_count   = 1 # Run exactly one copy of our container
+
+  network_configuration {
+    subnets          = data.aws_subnets.default.ids
+    security_groups  = [aws_security_group.ecs_sg.id] # <-- ADD THIS LINE
+    assign_public_ip = true
+  }
+}
