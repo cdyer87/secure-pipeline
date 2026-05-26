@@ -52,27 +52,25 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "state_encryption"
   }
 }
 
-# 3. The DynamoDB Table (The State Lock)
 resource "aws_dynamodb_table" "terraform_locks" {
-  name         = "enterprise-cicd-state-locks"
-  billing_mode = "PAY_PER_REQUEST" # Free-tier friendly, only pay for what you use
-  hash_key     = "LockID"          # Terraform specifically looks for this exact key name
+  name         = "enterprise-cicd-state-locks-${terraform.workspace}" # <--- Added workspace variable
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
 
   attribute {
     name = "LockID"
     type = "S"
   }
   
-  tags = { Name = "enterprise-cicd-state-locks" }
+  tags = { Name = "enterprise-cicd-state-locks-${terraform.workspace}" }
 }
 # --- Phase 2: The Container Vault (AWS ECR) ---
 
 resource "aws_ecr_repository" "app_repo" {
-  name                 = "enterprise-secure-app"
+  name                 = "enterprise-secure-app-${terraform.workspace}" # <--- Added workspace variable
   image_tag_mutability = "MUTABLE"
-  force_delete         = true # Allows clean teardown later
+  force_delete         = true
 
-  # This is a massive resume booster: AWS will automatically scan your code for vulnerabilities
   image_scanning_configuration {
     scan_on_push = true 
   }
@@ -81,7 +79,8 @@ resource "aws_ecr_repository" "app_repo" {
 
 # 1. IAM Role: Give ECS permission to pull Docker images from your ECR Vault
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "enterprise-ecs-execution-role"
+  name = "enterprise-ecs-execution-role-${terraform.workspace}" # <-- Added workspace variable
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -100,7 +99,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
 
 # 2. The Serverless Cluster
 resource "aws_ecs_cluster" "app_cluster" {
-  name = "enterprise-serverless-cluster"
+  name = "enterprise-serverless-cluster-${terraform.workspace}" # <--- Added workspace variable
 }
 
 # 3. The Blueprint (Task Definition)
@@ -138,7 +137,7 @@ data "aws_subnets" "default" {
 }
 # 3. The Front Door (Security Group)
 resource "aws_security_group" "ecs_sg" {
-  name        = "enterprise-ecs-sg"
+  name        = "enterprise-ecs-sg-${terraform.workspace}" 
   description = "Security group for Enterprise ECS tasks"
   vpc_id      = data.aws_vpc.default.id
 
@@ -148,12 +147,10 @@ resource "aws_security_group" "ecs_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    # For a real client, this would be their corporate office IP. 
-    # For your portfolio, put your actual public IP address here (e.g., "203.0.113.50/32")
-    cidr_blocks = ["76.139.93.89/32"] 
+    cidr_blocks = ["76.139.93.89/32"]
   }
 
-  # Failsafe: Restrict outbound traffic to HTTPS only (No more "Port -1")
+  # Allow HTTPS outbound for AWS APIs and ECR image pulls
   egress {
     description = "Allow HTTPS outbound for AWS APIs and ECR image pulls"
     from_port   = 443
