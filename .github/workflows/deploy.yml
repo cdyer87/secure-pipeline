@@ -15,14 +15,14 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-# Step 1.5: The Security Gatekeeper (Checkov)
+    # Step 1.5: The Security Gatekeeper (Checkov)
     - name: Run Checkov Security Scan
       uses: bridgecrewio/checkov-action@master
       with:
-        directory: .  # <--- Changed to scan the root directory (.)
+        directory: .  
         framework: terraform
-        quiet: true   # Keeps logs clean by only showing failures
-        soft_fail: false # Forcefully stops the pipeline if vulnerabilities are found
+        quiet: true   
+        soft_fail: false 
 
     # Step 2: Log securely into your AWS account
     - name: Configure AWS Credentials
@@ -47,19 +47,19 @@ jobs:
         cd app
         docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
         docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-        # Step 5: Install Terraform on the GitHub Runner
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
 
-      # Step 6: Initialize the Terraform Working Directory
-      - name: Terraform Init
-        run: terraform init
+    # Step 5: Install Terraform on the GitHub Runner
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
 
-      # Step 7: The Ephemeral Environment Logic
-      # This selects the workspace matching your branch name, or creates it if it doesn't exist
-      - name: Select or Create Workspace
-        run: terraform workspace select ${{ github.ref_name }} || terraform workspace new ${{ github.ref_name }}
+    # Step 6: Initialize the Terraform Working Directory
+    - name: Terraform Init
+      run: terraform init
 
-      # Step 8: Deploy the Infrastructure automatically
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
+    # Step 7: The Ephemeral Environment Logic
+    - name: Select or Create Workspace
+      run: terraform workspace select ${{ github.ref_name }} || terraform workspace new ${{ github.ref_name }}
+
+    # Step 8: Deploy the Infrastructure automatically
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
