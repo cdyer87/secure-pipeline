@@ -15,6 +15,15 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
+# Step 1.5: The Security Gatekeeper (Checkov)
+    - name: Run Checkov Security Scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: .  # <--- Changed to scan the root directory (.)
+        framework: terraform
+        quiet: true   # Keeps logs clean by only showing failures
+        soft_fail: false # Forcefully stops the pipeline if vulnerabilities are found
+
     # Step 2: Log securely into your AWS account
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
