@@ -1,15 +1,12 @@
 terraform {
-  backend "s3" {
-    bucket         = "enterprise-cicd-vault-7da80258" # Your unique bucket name
-    key            = "global/s3/terraform.tfstate"    # The file path inside the bucket
-    region         = "us-east-1"
-    dynamodb_table = "enterprise-cicd-state-locks"    # The lock table we just built
-    encrypt        = true
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
-}
+} # <--- MAKE SURE THIS BRACE IS HERE!
 
-# ... (rest of your existing code) ...
-# --- Phase 1: The Remote Vault (Backend Infrastructure) ---
 provider "aws" {
   region = "us-east-1"
 }
@@ -132,20 +129,26 @@ data "aws_subnets" "default" {
 # 3. The Front Door (Security Group)
 resource "aws_security_group" "ecs_sg" {
   name        = "enterprise-ecs-sg"
-  description = "Allow HTTP traffic from the internet"
+  description = "Security group for Enterprise ECS tasks"
   vpc_id      = data.aws_vpc.default.id
 
+  # Failsafe: Restrict inbound traffic to a specific trusted network
   ingress {
+    description = "Allow HTTP inbound from corporate VPN/trusted IP only"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    # For a real client, this would be their corporate office IP. 
+    # For your portfolio, put your actual public IP address here (e.g., "203.0.113.50/32")
+    cidr_blocks = ["76.139.93.89/32"] 
   }
 
+  # Failsafe: Restrict outbound traffic to HTTPS only (No more "Port -1")
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "Allow HTTPS outbound for AWS APIs and ECR image pulls"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
