@@ -17,7 +17,14 @@ resource "random_id" "bucket_suffix" {
 }
 
 # 2. The S3 Bucket (Terraform's Remote Memory)
-resource "aws_s3_bucket" "terraform_state" # Explicitly block all public access to the state file vault
+resource "aws_s3_bucket" "terraform_state" {
+  bucket        = "enterprise-cicd-vault-${random_id.bucket_suffix.hex}"
+  force_destroy = true # Allows us to easily tear this down later
+  
+  tags = { Name = "enterprise-cicd-state-vault" }
+}
+
+# Explicitly block all public access to the state file vault
 resource "aws_s3_bucket_public_access_block" "terraform_state_sec" {
   bucket                  = aws_s3_bucket.terraform_state.id
   
