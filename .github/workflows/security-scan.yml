@@ -1,10 +1,14 @@
 name: Terraform Security Scanner
 
-# Wake the robot up whenever a Pull Request is opened
 on:
   pull_request:
     branches:
       - main
+
+# Give the robot permission to read the code AND write comments
+permissions:
+  pull-requests: write
+  contents: read
 
 jobs:
   tfsec_scan:
@@ -12,11 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: The robot downloads your code
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: The robot puts on its security glasses and scans the code
       - name: Run tfsec
         uses: aquasecurity/tfsec-pr-commenter-action@v1.2.0
         with:
