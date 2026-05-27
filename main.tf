@@ -172,4 +172,4 @@ resource "aws_ecs_service" "app_service" {
     security_groups  = [aws_security_group.ecs_sg.id] # <-- ADD THIS LINE
     assign_public_ip = true
   }
-}
+}# Waking up the security scanner
