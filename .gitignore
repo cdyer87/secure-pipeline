@@ -11,3 +11,9 @@ crash.*.log
 
 # Ignore any secret files
 *.tfvars
+# Variables files containing credentials or secrets
+*.tfvars
+*.tfvars.json
+
+# OS generated files
+.DS_Store
