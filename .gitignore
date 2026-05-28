@@ -1,3 +1,13 @@
-.terraform/
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
 *.tfstate
 *.tfstate.*
+
+# Variables files containing credentials or secrets
+*.tfvars
+*.tfvars.json
+
+# OS generated files
+.DS_Store
