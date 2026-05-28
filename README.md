@@ -23,3 +23,11 @@ I architected and deployed a pipeline where any new infrastructure code pushed t
 * **Infrastructure as Code:** Terraform
 * **CI/CD:** GitHub Actions
 * **Security Scanning:** tfsec
+
+Situation: During a routine sprint, a developer accidentally committed a plaintext AWS Access Key and Secret Key directly into the application's source code before pushing to the repository.
+
+Task: My objective was to ensure the CI/CD pipeline automatically intercepted the compromised credentials before they could be built into the container or deployed to the live environment, while immediately alerting the team to rotate the keys.
+
+Action: I engineered the CI/CD pipeline to run an automated secret-scanning security gate immediately upon any new pull request. When the developer attempted to commit the credentials, the pipeline scanned the code diff, identified the AWS key signatures using regex pattern matching, and instantly failed the build. Simultaneously, the pipeline routed an automated alert to the development team detailing the exact file and line number of the exposure.
+
+Result: The compromised code was completely blocked from reaching the deployment phase, preventing a potentially catastrophic cloud security breach. The team immediately rotated the exposed AWS keys, revoked the old credentials, and merged a sanitized version of the code, resulting in zero compromised infrastructure and zero deployment downtime.
