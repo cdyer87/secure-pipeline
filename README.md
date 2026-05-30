@@ -33,3 +33,10 @@ I architected and deployed a pipeline where any new infrastructure code pushed t
 **Action:** I engineered the CI/CD pipeline to run an automated secret-scanning security gate immediately upon any new pull request. When the developer attempted to commit the credentials, the pipeline scanned the code diff, identified the AWS key signatures using regex pattern matching, and instantly failed the build. Simultaneously, the pipeline routed an automated alert to the development team detailing the exact file and line number of the exposure.
 
 **Result:** The compromised code was completely blocked from reaching the deployment phase, preventing a potentially catastrophic cloud security breach. The team immediately rotated the exposed AWS keys, revoked the old credentials, and merged a sanitized version of the code, resulting in zero compromised infrastructure and zero deployment downtime.
+
+## DevSecOps Integration: Proactive Threat Detection 
+
+This screenshot demonstrates the CI/CD pipeline intentionally halting a deployment. The integrated Checkov security scanner successfully detected simulated AWS credentials committed to the repository, blocking the Terraform execution to prevent exposed secrets from reaching the cloud environment. 
+
+![CI/CD Security Block](checkov-block.png)
+
