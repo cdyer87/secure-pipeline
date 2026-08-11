@@ -1,4 +1,4 @@
-name: Enterprise CI/CD Pipeline
+name: AWS DevSecOps CI/CD Pipeline
 
 # 1. The Trigger: When does this run?
 on:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Download your code into the GitHub server
+    # Step 1: Check out repository code on the GitHub-hosted runner
     - name: Checkout Code
       uses: actions/checkout@v3
 
@@ -32,12 +32,12 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
 
-    # Step 3: Log into your private ECR Vault
+    # Step 3: Authenticate to Amazon ECR
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    # Step 4: Build the Docker image and push it to AWS!
+    # Step 4: Build and push the Docker image to Amazon ECR
     - name: Build, Tag, and Push Docker Image
       env:
         REGISTRY: ${{ steps.login-ecr.outputs.registry }}
