@@ -1,42 +1,66 @@
-# Automated DevSecOps Pipeline 🛡️🚀
+# Automated AWS DevSecOps Pipeline 🛡️🚀
 
 ## Project Overview
-Manual infrastructure deployment is slow, prone to human error, and often introduces security vulnerabilities that go unnoticed until the infrastructure is already live in the cloud. 
 
-This project solves that by implementing a fully automated, zero-touch CI/CD pipeline. 
+Manual infrastructure deployment can introduce configuration inconsistencies and security issues if infrastructure changes are not validated before deployment.
+
+This project demonstrates an automated AWS DevSecOps pipeline using GitHub Actions, Checkov, Docker, Amazon ECR, and Terraform. Infrastructure code is scanned for security misconfigurations before the workflow proceeds to the AWS deployment stages.
 
 ## The Architecture
-![Architecture Diagram](devsecops-pipeline-architecture.png)
+
+![DevSecOps Pipeline Architecture](devsecops-pipeline-architecture.png)
 
 ## The Solution
-I architected and deployed a pipeline where any new infrastructure code pushed to the repository automatically triggers a strict security scan using GitHub Actions. 
-1. **Code Commit:** Developer pushes Terraform code to GitHub.
-2. **Security Gate:** GitHub Actions triggers `tfsec` to scan for misconfigurations.
-3. **Deployment:** If the code passes all security gates, Terraform automatically provisions the resources directly into the AWS environment.
 
-## The Business Impact
-* **Automated Security:** Prevented misconfigurations and vulnerabilities from reaching production by implementing automated "shift-left" security scanning.
-* **Velocity & Consistency:** Eliminated manual provisioning, ensuring infrastructure is deployed exactly the same way every single time in a matter of seconds.
+The GitHub Actions workflow is triggered when code is pushed to the `main` branch.
+
+1. **Code Checkout:** GitHub Actions checks out the repository on a GitHub-hosted runner.
+2. **Security Gate:** Checkov scans the Terraform configuration for security and compliance misconfigurations.
+3. **AWS Authentication:** If the security scan succeeds, the workflow configures AWS credentials using GitHub Actions secrets.
+4. **Container Build:** Docker builds the application container image.
+5. **Container Registry:** The image is pushed to Amazon Elastic Container Registry (ECR).
+6. **Terraform Initialization:** Terraform initializes the working directory.
+7. **Workspace Selection:** Terraform selects or creates a workspace based on the Git branch.
+8. **Infrastructure Deployment:** Terraform applies the infrastructure configuration automatically.
+
+Because Checkov is configured with `soft_fail: false`, a failed security scan stops the job before the AWS authentication, container publishing, and Terraform deployment steps execute.
 
 ## Core Technologies
-* **Cloud Provider:** AWS
-* **Infrastructure as Code:** Terraform
-* **CI/CD:** GitHub Actions
-* **Security Scanning:** tfsec
 
-## Simulated Case Study: Secret Scanning Incident
+- **Cloud Provider:** AWS
+- **Infrastructure as Code:** Terraform
+- **CI/CD:** GitHub Actions
+- **Security Scanning:** Checkov
+- **Containers:** Docker
+- **Container Registry:** Amazon ECR
+- **AWS Authentication:** GitHub Actions Secrets
 
-**Situation:** During a routine sprint, a developer accidentally committed a plaintext AWS Access Key and Secret Key directly into the application's source code before pushing to the repository.
+## Simulated Case Study: Infrastructure Misconfiguration Blocked by Checkov
 
-**Task:** My objective was to ensure the CI/CD pipeline automatically intercepted the compromised credentials before they could be built into the container or deployed to the live environment, while immediately alerting the team to rotate the keys.
+**Situation:** A Terraform configuration contains a security misconfiguration that violates a Checkov policy check.
 
-**Action:** I engineered the CI/CD pipeline to run an automated secret-scanning security gate immediately upon any new pull request. When the developer attempted to commit the credentials, the pipeline scanned the code diff, identified the AWS key signatures using regex pattern matching, and instantly failed the build. Simultaneously, the pipeline routed an automated alert to the development team detailing the exact file and line number of the exposure.
+**Task:** Prevent infrastructure that fails the security scan from proceeding through the automated deployment pipeline.
 
-**Result:** The compromised code was completely blocked from reaching the deployment phase, preventing a potentially catastrophic cloud security breach. The team immediately rotated the exposed AWS keys, revoked the old credentials, and merged a sanitized version of the code, resulting in zero compromised infrastructure and zero deployment downtime.
+**Action:** The GitHub Actions workflow runs Checkov against the Terraform configuration before the AWS deployment stages. Checkov is configured with `soft_fail: false`, causing the workflow to fail when a policy violation is detected.
 
-## DevSecOps Integration: Proactive Threat Detection 
+**Result:** The simulated security issue is detected before the deployment stages execute, demonstrating how automated infrastructure-as-code scanning can provide a shift-left security gate.
 
-This screenshot demonstrates the CI/CD pipeline intentionally halting a deployment. The integrated Checkov security scanner successfully detected simulated AWS credentials committed to the repository, blocking the Terraform execution to prevent exposed secrets from reaching the cloud environment. 
+## Security Considerations
 
-![CI/CD Security Block](checkov-block.png)
+The repository excludes Terraform state files, variable files that may contain secrets, private key files, and local Terraform working directories through `.gitignore`.
 
+AWS credentials used by the workflow are referenced through GitHub Actions secrets rather than stored directly in the workflow file.
+
+## Potential Improvements
+
+Future improvements could include:
+
+- Replace long-lived AWS access keys with GitHub Actions OIDC and short-lived AWS credentials
+- Add `terraform fmt` and `terraform validate` checks
+- Generate and review a Terraform plan before applying changes
+- Pin GitHub Actions to specific versions or commit SHAs
+- Use immutable Docker image tags instead of only `latest`
+- Store Terraform state in a remote backend with locking
+- Add container image vulnerability scanning
+- Add pull-request validation before changes reach `main`
+- Add a manual approval gate for production deployments
