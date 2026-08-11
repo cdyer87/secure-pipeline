@@ -11,3 +11,5 @@
 
 # OS generated files
 .DS_Store
+# Private keys
+*.pem
